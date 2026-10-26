@@ -104,7 +104,8 @@ The app's own Expo config (`app.json` or `app.config.*`) must also:
 The app's repository needs one secret, `EXPO_TOKEN`: an Expo access token for the account that owns the
 EAS project, which EAS CLI reads from the environment
 ([access tokens](https://docs.expo.dev/accounts/programmatic-access/)). A robot user with the Developer
-role is enough to create the project with `eas init` and to deploy.
+role is enough to create the project with `eas init` and to deploy, though not to set the project's icon
+(checked with eas-cli 25.3.0).
 
 ## What each hook does
 
@@ -156,7 +157,8 @@ of git.
 
 ## How it is tested
 
-This repository is a library: its own pipeline publishes it to npm and never deploys to Expo. Its tests run
+This repository is a library: its own pipeline publishes it to npm and never deploys to Expo. `bun run
+jive:cicd:audit` runs every check: `tsc`, the unit tests, then the hook tests on the fixture. Its tests run
 everything up to the point of contacting EAS:
 
 - Unit tests (`src/**/*.test.ts`) cover the manifest rules, URL and id derivation, the generated `eas.json`,

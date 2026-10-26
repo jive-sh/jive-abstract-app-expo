@@ -21,7 +21,7 @@ const packageJson: PackageJson = Schema.decodeUnknownSync(PackageJsonSchema)({
   name: "my-app",
   version: "1.0.0",
   license: "MIT",
-  scripts: Object.fromEntries(["get-config", "build", "audit", "deploy:url", "upload-artifacts", "deploy"].map((hook) => [`jive:cicd:${hook}`, `jive-app-expo cicd ${hook}`])),
+  scripts: Object.fromEntries(["get-config", "build", "audit", "deploy:plan", "upload-artifacts", "deploy"].map((hook) => [`jive:cicd:${hook}`, `jive-app-expo cicd ${hook}`])),
   jive: {
     cicd: {
       deploy: { verb: "Deploy to", branches: { main: ["Staging", "Production"] }, previews: true, sequentially: true },
@@ -135,10 +135,10 @@ describe("deploy", () => {
     expect(calls.map(({ method }) => method)).toEqual(["deployWeb"]);
   });
 
-  test("fails, before touching native apps, when EAS serves the web app somewhere deploy:url did not announce", function* () {
+  test("fails, before touching native apps, when EAS serves the web app somewhere deploy:plan did not announce", function* () {
     const result = yield* Effect.result(deployWith({ environment: "Staging", context: commit, servedUrl: "https://my-app--elsewhere.expo.app", existingBuild: Option.none() }));
     expect(result._tag).toBe("Failure");
-    expect(result._tag === "Failure" ? result.failure : "").toContain("deploy:url announced https://my-app--staging.expo.app/");
+    expect(result._tag === "Failure" ? result.failure : "").toContain("deploy:plan announced https://my-app--staging.expo.app/");
   });
 
   test("refuses an environment the package does not deploy", function* () {

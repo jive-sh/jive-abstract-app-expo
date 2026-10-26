@@ -31,13 +31,13 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
       promotion: plan.value.promotion,
       easEnvironment: settings.value.easEnvironment,
     });
-    // deploy:url already announced a URL, and the pipeline links to it; EAS reporting another means that
+    // deploy:plan already announced a URL, and the pipeline links to it; EAS reporting another means that
     // link would mislead. EAS reports production at its expo.app URL even when a custom domain is set.
     const expected = Option.isSome(config.web.customDomain) && plan.value.promotion._tag === "Production"
       ? productionExpoAppUrl(config.web.subdomain)
       : plan.value.url;
     if (new URL(deployment.url).href !== new URL(expected).href) {
-      return yield* Effect.fail(`EAS served deployment ${deployment.identifier} at ${deployment.url}, but deploy:url announced ${expected}`);
+      return yield* Effect.fail(`EAS served deployment ${deployment.identifier} at ${deployment.url}, but deploy:plan announced ${expected}`);
     }
     yield* Effect.log(`Deployed ${deployment.identifier}; ${environment} is live at ${plan.value.url}`);
 

@@ -54,17 +54,17 @@ describe("the hooks, run against test/fixture", () => {
     expect(hook("jive:cicd:audit").exitCode).toBe(0);
   }, TIMEOUT);
 
-  test("deploy:url prints exactly one URL per environment and refuses an unknown one", () => {
+  test("deploy:plan plans a deploy to exactly one URL per environment and refuses an unknown one", () => {
     const urls = Object.fromEntries(LABELS.map((environment) => [
       environment,
-      hook("jive:cicd:deploy:url", { JIVE_DEPLOY_ENVIRONMENT: environment, JIVE_PIPELINE_CONTEXT: pullRequest }).stdout,
+      hook("jive:cicd:deploy:plan", { JIVE_DEPLOY_ENVIRONMENT: environment, JIVE_PIPELINE_CONTEXT: pullRequest }).stdout,
     ]));
     expect(urls).toEqual({
-      Staging: "https://jive-abstract-app-expo-fixture--staging.expo.app/\n",
-      Production: "https://jive-abstract-app-expo-fixture.expo.app/\n",
-      Preview: "https://jive-abstract-app-expo-fixture--pr-7-1a2b3c4d.expo.app/\n",
+      Staging: '{"deploy":true,"url":"https://jive-abstract-app-expo-fixture--staging.expo.app/"}\n',
+      Production: '{"deploy":true,"url":"https://jive-abstract-app-expo-fixture.expo.app/"}\n',
+      Preview: '{"deploy":true,"url":"https://jive-abstract-app-expo-fixture--pr-7-1a2b3c4d.expo.app/"}\n',
     });
-    const unknown = hook("jive:cicd:deploy:url", { JIVE_DEPLOY_ENVIRONMENT: "Elsewhere", JIVE_PIPELINE_CONTEXT: pullRequest });
+    const unknown = hook("jive:cicd:deploy:plan", { JIVE_DEPLOY_ENVIRONMENT: "Elsewhere", JIVE_PIPELINE_CONTEXT: pullRequest });
     expect(unknown.exitCode).not.toBe(0);
     expect(unknown.stdout).toBe("");
   });

@@ -39,7 +39,7 @@ Its CLI is `jive-app-expo`, so the target command for a new app is `jive create 
     "jive:cicd:get-config": "jive-app-expo cicd get-config",
     "jive:cicd:build": "jive-app-expo cicd build",
     "jive:cicd:audit": "jive-app-expo cicd audit",
-    "jive:cicd:deploy:url": "jive-app-expo cicd deploy-url",
+    "jive:cicd:deploy:plan": "jive-app-expo cicd deploy-plan",
     "jive:cicd:upload-artifacts": "jive-app-expo cicd upload-artifacts",
     "jive:cicd:deploy": "jive-app-expo cicd deploy",
     "dev": "jive-app-expo dev"
@@ -114,9 +114,9 @@ role is enough to create the project with `eas init` and to deploy, though not t
 | `get-config` | Prints the validated `jive` block as JSON. |
 | `build` | Checks `package.json` and the Expo config, writes `eas.json` when native platforms are on, and runs `expo export --platform web` once per environment into `dist/web/<environment>`, with that environment's variables. |
 | `audit` | Checks every environment has a web export. Replace this script to run the app's own tests. |
-| `deploy:url` | Prints the environment's web URL, derived from configuration alone (table below). |
+| `deploy:plan` | Plans a deploy (`{"deploy":true,"url":…}`) to the environment's web URL, derived from configuration alone (table below). |
 | `upload-artifacts` | Nothing; the pipeline's artifact already carries `dist/`. |
-| `deploy` | Runs `eas deploy` for the environment's export, then fails if EAS reports a URL other than the one `deploy:url` printed. For each native platform it then runs `eas build` if no build of that profile exists for the runtime version, and `eas update` to the environment's channel, bundling into `dist/eas-update` so the other environments' web exports survive. |
+| `deploy` | Runs `eas deploy` for the environment's export, then fails if EAS reports a URL other than the one `deploy:plan` printed. For each native platform it then runs `eas build` if no build of that profile exists for the runtime version, and `eas update` to the environment's channel, bundling into `dist/eas-update` so the other environments' web exports survive. |
 
 Where each environment's web app is served:
 
@@ -146,7 +146,7 @@ of git.
   channel, which costs a build per pull request.
 - **Custom domains are assigned in the EAS dashboard.** Assigning one, and its three DNS records, is a
   dashboard step on a paid plan ([custom domain](https://docs.expo.dev/eas/hosting/custom-domain/)).
-  `customDomain` only changes the URL `deploy:url` reports.
+  `customDomain` only changes the URL `deploy:plan` reports.
 - **iOS needs an Apple Developer Program membership** linked to the EAS project, because EAS generates the
   signing credentials with it ([managed credentials](https://docs.expo.dev/app-signing/managed-credentials/)).
   Android needs nothing beyond the token: in non-interactive mode EAS generates the keystore itself.
@@ -164,7 +164,7 @@ everything up to the point of contacting EAS:
 - Unit tests (`src/**/*.test.ts`) cover the manifest rules, URL and id derivation, the generated `eas.json`,
   the deploy sequence against fake modules, and the EAS module against `eas` CLI output recorded from a real
   project (`src/internal/modules/eas/recorded/`).
-- `test/hooks.test.ts` runs `get-config`, `build`, `audit` and `deploy:url` against the fixture app in
+- `test/hooks.test.ts` runs `get-config`, `build`, `audit` and `deploy:plan` against the fixture app in
   `test/fixture`, and checks each environment's bundle carries only its own variables.
 
 What only an app's own pipeline can test, against its real EAS project: that EAS accepts the token and

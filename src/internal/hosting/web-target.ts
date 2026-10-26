@@ -5,7 +5,7 @@ import { PREVIEW_ENVIRONMENT, type AppExpoConfig } from "../public/manifest";
 /**
  * How one environment's web app is published on EAS Hosting, and the URL it is then served at.
  *
- * `deploy:url` must print the URL before anything is deployed, and `deploy` must publish to exactly that URL,
+ * `deploy:plan` must print the URL before anything is deployed, and `deploy` must publish to exactly that URL,
  * so both derive it here from configuration and the pipeline context alone. EAS Hosting makes that possible:
  * a deployment is reachable at `https://<subdomain>--<id>.expo.app` for an id the deployer chooses, at
  * `https://<subdomain>--<alias>.expo.app` once given an alias, and at `https://<subdomain>.expo.app` (and the

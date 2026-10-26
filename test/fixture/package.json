@@ -9,7 +9,7 @@
     "jive:cicd:get-config": "bun ../../src/entrypoints/jive-app-expo.ts cicd get-config",
     "jive:cicd:build": "bun ../../src/entrypoints/jive-app-expo.ts cicd build",
     "jive:cicd:audit": "bun ../../src/entrypoints/jive-app-expo.ts cicd audit",
-    "jive:cicd:deploy:url": "bun ../../src/entrypoints/jive-app-expo.ts cicd deploy-url",
+    "jive:cicd:deploy:plan": "bun ../../src/entrypoints/jive-app-expo.ts cicd deploy-plan",
     "jive:cicd:upload-artifacts": "bun ../../src/entrypoints/jive-app-expo.ts cicd upload-artifacts",
     "jive:cicd:deploy": "bun ../../src/entrypoints/jive-app-expo.ts cicd deploy",
     "start": "expo start"

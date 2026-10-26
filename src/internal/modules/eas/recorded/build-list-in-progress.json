@@ -1,0 +1,50 @@
+[
+  {
+    "id": "41ff85c5-10d3-4adc-93a8-bfed79e7e629",
+    "status": "IN_PROGRESS",
+    "platform": "ANDROID",
+    "artifacts": {},
+    "fingerprint": {
+      "id": "01a177a8-ea9e-7680-bb99-931d411b8116",
+      "hash": "7aa7b720386abb1212822642ed00d5188c9598a1"
+    },
+    "initiatingActor": {
+      "id": "6d50d000-c2ae-4fda-aaec-84f0b21b80b2",
+      "displayName": "jive-ci"
+    },
+    "logFiles": [
+      "https://storage.googleapis.com/eas-workflows-production/logs/37aea2ca-c01f-4347-8ac1-793d9f3aa131/41ff85c5-10d3-4adc-93a8-bfed79e7e629/2026-10-26T10%3A02%3A04Z-9309ffae-a41a-4940-9ebe-7db3fd8c91d9.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261026%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261026T100720Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=930e349ec81f2a95a600088a8a77eb5f5c15f71beb54af0e2916afdfa9cf6f97604db62bfe5dd8b2f4d179b1753f79678953978c882357ea60f24b2feced64aa23f8a15d38c6952da1c7c0c5ea1da133c9b49f0b6e416a10ca11aaf0af6538a9a0537ba592989d1c44a36993427c1f828d456d728e137724105726581bd8d734649c26a6c4aa890b26b065109bac55425d337d6c5a00709ffbc79841d89e68c69ea50255caef7147c6004c1aee17593db65d0d326535d68c22ba91df27187fca0ddaae187a95b619de850fc79c189b01f5ef6b176bc99c9d08d5c712c8072cd885f14cd6422a532692cf20330c1e4fd800dfb764859550ef77ee52c2e7a458df"
+    ],
+    "app": {
+      "id": "37aea2ca-c01f-4347-8ac1-793d9f3aa131",
+      "name": "jive-abstract-app-expo-fixture",
+      "slug": "jive-abstract-app-expo-fixture",
+      "ownerAccount": {
+        "id": "6695b98a-73ec-40a8-84e3-e41ed7fff382",
+        "name": "jive-sh"
+      }
+    },
+    "updateChannel": {
+      "id": "01a177a8-ae98-7d28-ad83-2b1c011cdeb9",
+      "name": "staging"
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "staging",
+    "appIdentifier": "sh.jive.abstractappexpo.fixture",
+    "sdkVersion": "58.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "2",
+    "runtime": {
+      "id": "01a177a8-ea91-7ed2-a0bc-6caf56c7cbba",
+      "version": "1.0.0"
+    },
+    "gitCommitHash": "15daf0d0bc43a65ff5097922e551de401a938861",
+    "gitCommitMessage": "Add jive-abstract-app-expo: build and deploy Expo apps per environment\n\nAn Expo app extending this abstract gets Jive's six CI/CD hooks with no pipeline code: build exports the web\napp once per environment with that environment's EXPO_PUBLIC_ variables, deploy publishes it to EAS Hosting\n(production, an alias, or a per-commit preview deployment) at the URL deploy:url predicted, then starts an EAS\nBuild for each native platform when none exists for the runtime version and publishes an EAS Update to the\nenvironment's channel.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+    "priority": "NORMAL",
+    "createdAt": "2026-10-26T10:02:01.159Z",
+    "updatedAt": "2026-10-26T10:02:08.762Z",
+    "message": "main@1a177a803abb41a0000000000000000000000000",
+    "expirationDate": "2026-11-09T10:02:01.231Z",
+    "isForIosSimulator": false
+  }
+]

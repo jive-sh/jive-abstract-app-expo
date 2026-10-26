@@ -59,6 +59,16 @@ function expoAppUrl(label: string): string {
   return `https://${label}.expo.app/`;
 }
 
+/** Where the production deployment is reachable on EAS's own domain, custom domain or not. */
+export function productionExpoAppUrl(subdomain: string): string {
+  return expoAppUrl(subdomain);
+}
+
+/** Where one deployment is reachable by its id, whatever it is promoted as. */
+export function deploymentUrl(subdomain: string, id: string): string {
+  return expoAppUrl(`${subdomain}--${id}`);
+}
+
 /** How one environment is deployed and where it is served, or None for one this package does not configure. */
 export function planWebDeployment(input: {
   readonly config: AppExpoConfig;
@@ -74,7 +84,7 @@ export function planWebDeployment(input: {
     const previewId = id(context.event.type === "PULL_REQUEST"
       ? `pr-${toDnsLabelWords(context.event.id)}`
       : `branch-${toDnsLabelWords(context.sourceBranch)}`);
-    return Option.some({ id: previewId, promotion: Promotion.None(), url: expoAppUrl(`${subdomain}--${previewId}`) });
+    return Option.some({ id: previewId, promotion: Promotion.None(), url: deploymentUrl(subdomain, previewId) });
   }
 
   const configured = config.environments[environment];
@@ -83,7 +93,7 @@ export function planWebDeployment(input: {
     return Option.some({
       id: id("production"),
       promotion: Promotion.Production(),
-      url: Option.isSome(customDomain) ? `https://${customDomain.value}/` : expoAppUrl(subdomain),
+      url: Option.isSome(customDomain) ? `https://${customDomain.value}/` : productionExpoAppUrl(subdomain),
     });
   }
   const { alias } = configured.web;

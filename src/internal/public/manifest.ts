@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { makeJivePackageJsonSchema, type CicdConfig } from "jive-abstract-library";
+import { CHANNEL_PATTERN, nativeChannel } from "../native/eas-json";
 
 /**
  * The shape a package.json must have to be built and deployed by this abstract: everything every Jive
@@ -9,6 +10,9 @@ import { makeJivePackageJsonSchema, type CicdConfig } from "jive-abstract-librar
 
 /** The environment Jive's pipeline deploys for a pull request, when `cicd.deploy.previews` is on. */
 export const PREVIEW_ENVIRONMENT = "Preview";
+
+/** The secret an app extending this abstract must give its pipeline: an Expo access token for its EAS project. */
+export const EXPO_TOKEN_SECRET = "EXPO_TOKEN";
 
 /** The key this abstract's block has under `jive`, and the `<kind>` in `jive-abstract-<kind>`. */
 export const ABSTRACT_KEY = "app-expo";
@@ -119,6 +123,9 @@ export function crossFieldErrors(cicd: CicdConfig, appExpo: AppExpoConfig): Read
   for (const name of configured) {
     if (!deployed.has(name)) errors.push(`jive.${ABSTRACT_KEY}.environments has "${name}", which no branch in cicd.deploy.branches deploys`);
   }
+  if (!(cicd.requiredSecrets ?? []).includes(EXPO_TOKEN_SECRET)) {
+    errors.push(`cicd.requiredSecrets must include "${EXPO_TOKEN_SECRET}": every deploy runs EAS CLI, which authenticates with that access token (https://docs.expo.dev/accounts/programmatic-access/), and the pipeline only passes listed secrets to the hooks`);
+  }
   if (configured.has(PREVIEW_ENVIRONMENT)) {
     errors.push(`"${PREVIEW_ENVIRONMENT}" is the pull request environment; configure it under jive.${ABSTRACT_KEY}.preview`);
   }
@@ -127,6 +134,18 @@ export function crossFieldErrors(cicd: CicdConfig, appExpo: AppExpoConfig): Read
   }
   if (!cicd.deploy.previews && appExpo.preview._tag === "Some") {
     errors.push(`cicd.deploy.previews is false, so jive.${ABSTRACT_KEY}.preview must be null`);
+  }
+
+  if (appExpo.native.platforms.length > 0) {
+    const byChannel = new Map<string, Array<string>>();
+    for (const name of configured) {
+      const channel = nativeChannel(name);
+      if (!CHANNEL_PATTERN.test(channel)) errors.push(`"${name}" cannot name an EAS Update channel: in lowercase it must match ${CHANNEL_PATTERN.source}`);
+      byChannel.set(channel, [...(byChannel.get(channel) ?? []), name]);
+    }
+    for (const [channel, names] of byChannel) {
+      if (names.length > 1) errors.push(`${names.map((name) => `"${name}"`).join(", ")} would share the EAS Update channel "${channel}"`);
+    }
   }
 
   const targets = Object.entries(appExpo.environments).map(([name, { web }]) => ({ name, web }));

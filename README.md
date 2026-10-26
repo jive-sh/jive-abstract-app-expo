@@ -82,6 +82,10 @@ that span fields:
   some branch.
 - `preview` is set exactly when `cicd.deploy.previews` is true.
 - At most one environment is `"production"`, and no two environments share an alias.
+- `cicd.requiredSecrets` includes `EXPO_TOKEN`, because the pipeline passes the hooks only the secrets
+  listed there.
+- With native platforms on, each environment's name in lowercase is a valid EAS Update channel, and no two
+  environments share one.
 - `variables` holds only `EXPO_PUBLIC_` names, the only ones Expo inlines into the app
   ([environment variables](https://docs.expo.dev/guides/environment-variables/)). They ship inside the app,
   so they are never secrets.
@@ -97,8 +101,10 @@ The app's own Expo config (`app.json` or `app.config.*`) must also:
 
 `build` checks all of these, so a pull request fails on a missing setting before anything merges.
 
-The pipeline needs one secret, `EXPO_TOKEN`: an Expo access token that EAS CLI reads from the environment
-([access tokens](https://docs.expo.dev/accounts/programmatic-access/)).
+The app's repository needs one secret, `EXPO_TOKEN`: an Expo access token for the account that owns the
+EAS project, which EAS CLI reads from the environment
+([access tokens](https://docs.expo.dev/accounts/programmatic-access/)). A robot user with the Developer
+role is enough to create the project with `eas init` and to deploy.
 
 ## What each hook does
 
@@ -109,7 +115,7 @@ The pipeline needs one secret, `EXPO_TOKEN`: an Expo access token that EAS CLI r
 | `audit` | Checks every environment has a web export. Replace this script to run the app's own tests. |
 | `deploy:url` | Prints the environment's web URL, derived from configuration alone (table below). |
 | `upload-artifacts` | Nothing; the pipeline's artifact already carries `dist/`. |
-| `deploy` | Runs `eas deploy` for the environment's export, then fails if EAS reports a URL other than the one `deploy:url` printed. For each native platform it then runs `eas build` if no build of that profile exists for the runtime version, and `eas update` to the environment's channel. |
+| `deploy` | Runs `eas deploy` for the environment's export, then fails if EAS reports a URL other than the one `deploy:url` printed. For each native platform it then runs `eas build` if no build of that profile exists for the runtime version, and `eas update` to the environment's channel, bundling into `dist/eas-update` so the other environments' web exports survive. |
 
 Where each environment's web app is served:
 
@@ -119,12 +125,19 @@ Where each environment's web app is served:
 | `"web": { "alias": "staging" }` | `--alias staging` | `https://<subdomain>--staging.expo.app/` |
 | `Preview` (pull request 42 at commit `1a2b3c4d…`) | `--id pr-42-1a2b3c4d` | `https://<subdomain>--pr-42-1a2b3c4d.expo.app/` |
 
+Every deployment also gets an id made of its kind and commit (`production-1a2b3c4d`,
+`alias-staging-1a2b3c4d`), so it stays reachable at `https://<subdomain>--<id>.expo.app/` after the alias
+moves on. Deployments are immutable, so a rerun of the same commit finds its deployment already there; the
+hook then points the alias or production at it again. Rerunning an older commit's deploy therefore rolls
+back to it.
+
 A preview is a deployment with its own id rather than an alias. Nothing needs cleaning up when the pull request
 closes, and previews don't use up aliases, which EAS caps per plan (5 on Free,
 [pricing](https://expo.dev/pricing)).
 
-`eas.json` is generated from `package.json` on every build, one profile per environment, with
-`channel` and the profile named after the environment. Keep it out of git.
+`eas.json` is generated from `package.json` on every build: one profile per environment, the profile and
+its `channel` both the environment's name in lowercase (EAS rejects capitals in channel names). Keep it out
+of git.
 
 ## Limitations and open questions
 
@@ -140,3 +153,21 @@ closes, and previews don't use up aliases, which EAS caps per plan (5 on Free,
   them needs Google Play and App Store Connect access.
 - **The `fingerprint` runtime version policy is not supported.** The hooks must know the runtime version
   without a native build, which a literal or `appVersion` allows.
+
+## How it is tested
+
+This repository is a library: its own pipeline publishes it to npm and never deploys to Expo. Its tests run
+everything up to the point of contacting EAS:
+
+- Unit tests (`src/**/*.test.ts`) cover the manifest rules, URL and id derivation, the generated `eas.json`,
+  the deploy sequence against fake modules, and the EAS module against `eas` CLI output recorded from a real
+  project (`src/internal/modules/eas/recorded/`).
+- `test/hooks.test.ts` runs `get-config`, `build`, `audit` and `deploy:url` against the fixture app in
+  `test/fixture`, and checks each environment's bundle carries only its own variables.
+
+What only an app's own pipeline can test, against its real EAS project: that EAS accepts the token and
+serves each deployment at the predicted URL, the first production promotion, the native build itself, and
+the installed app picking up the update. One observation from the run that recorded the outputs: a freshly
+created alias once answered 404 a minute after `eas deploy` reported it assigned, and served normally when
+the same deploy was repeated; the cause is unknown.
+

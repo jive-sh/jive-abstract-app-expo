@@ -4,6 +4,7 @@
  */
 export {
   ABSTRACT_KEY,
+  EXPO_TOKEN_SECRET,
   AppExpoSchema,
   JivePackageConfig,
   NativePlatform,

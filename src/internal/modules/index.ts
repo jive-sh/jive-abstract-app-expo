@@ -1,4 +1,5 @@
 import { interfaces } from "effective-modules";
+import type { IDeployer } from "./deployer/interface";
 import type { IEas } from "./eas/interface";
 import type { IExpo } from "./expo/interface";
 import type { IPackage } from "./package/interface";
@@ -9,6 +10,7 @@ export enum AppExpoModules {
   Package = "Package",
   Expo = "Expo",
   Eas = "Eas",
+  Deployer = "Deployer",
 }
 
 export const appExpoModules = interfaces<AppExpoModules, {
@@ -16,4 +18,5 @@ export const appExpoModules = interfaces<AppExpoModules, {
   Package: IPackage;
   Expo: IExpo;
   Eas: IEas;
+  Deployer: IDeployer;
 }>(AppExpoModules);

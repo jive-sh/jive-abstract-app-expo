@@ -1,0 +1,6 @@
+> Project export: static - exported 3 minutes ago
+- Preparing project
+✖ Failed to create deployment
+Your app already has a hosting deployment with the "repro-alias-1" deployment identifier.
+Request ID: c8972ef9-9f95-45cc-b4ee-d7b560ec8c60
+    Error: GraphQL request failed.

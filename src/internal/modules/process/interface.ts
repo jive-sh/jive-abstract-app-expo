@@ -8,13 +8,22 @@ export interface ProcessInput {
   readonly env: Readonly<Record<string, string>>;
 }
 
+export interface ProcessResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
 /**
- * Runs the command-line tools the hooks drive (Expo CLI, EAS CLI). Every child's stderr goes to this
- * process's stderr, because two hooks' stdout is parsed by the pipeline and must carry nothing else.
+ * Runs the command-line tools the hooks drive (Expo CLI, EAS CLI). Every child's stderr is forwarded to this
+ * process's stderr as it arrives, because two hooks' stdout is parsed by the pipeline and must carry nothing
+ * else; it is also kept, so a caller can tell one failure from another.
  */
 export interface IProcess {
-  /** Runs a command to completion and returns its stdout, failing with that output on a nonzero exit. */
+  /** Runs a command to completion, whatever its exit code; fails only when it cannot be run at all. */
+  result(input: ProcessInput): EffectGen<ProcessResult, string>;
+  /** Runs a command to completion and returns its stdout, failing with its output on a nonzero exit. */
   output(input: ProcessInput): EffectGen<string, string>;
-  /** Runs a command whose output is only for the log, so its stdout is forwarded to stderr as it arrives. */
+  /** Runs a command whose output is only for the log, so its stdout is forwarded to stderr as well. */
   run(input: ProcessInput): EffectGen<void, string>;
 }

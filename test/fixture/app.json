@@ -25,6 +25,15 @@
     },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "owner": "jive-sh",
+    "extra": {
+      "eas": {
+        "projectId": "37aea2ca-c01f-4347-8ac1-793d9f3aa131"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/37aea2ca-c01f-4347-8ac1-793d9f3aa131"
     }
   }
 }

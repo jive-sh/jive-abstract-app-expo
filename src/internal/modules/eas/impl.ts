@@ -1,13 +1,19 @@
 import { Effect, FileSystem, Option, Schema, SchemaIssue, pipe } from "effect";
 import { implementing, type EffectGen } from "effective-modules";
 import { resolve } from "node:path";
-import { Promotion } from "../../hosting/web-target";
-import type { NativePlatform } from "../../public/manifest";
+import { Promotion, deploymentUrl } from "../../hosting/web-target";
+import { EXPO_TOKEN_SECRET, type NativePlatform } from "../../public/manifest";
 import { appExpoModules } from "../index";
+import type { ProcessResult } from "../process/interface";
 import type { IEas, NativeBuild, WebDeployment } from "./interface";
 
-const TOKEN_VARIABLE = "EXPO_TOKEN";
 const EAS_JSON_FILE = "eas.json";
+
+/**
+ * Where `eas update` exports the native bundle. It clears the folder it exports into, and its default is
+ * `dist`, which would delete the web exports `build` left there for the other environments' deploys.
+ */
+export const UPDATE_EXPORT_DIR = "dist/eas-update";
 
 /** Statuses of a build that is, or will become, installable; anything else means a new one is needed. */
 const USABLE_BUILD_STATUSES = new Set(["NEW", "IN_QUEUE", "IN_PROGRESS", "FINISHED"]);
@@ -53,7 +59,7 @@ export class EasImpl extends implementing(appExpoModules.Eas).uses(appExpoModule
       Alias: ({ alias }) => ["--alias", alias],
       None: () => [],
     });
-    const output = yield* decodeJson(DeployOutput, "eas deploy", yield* this.eas([
+    const deployArgs = [
       "deploy",
       "--export-dir", input.exportDir,
       "--dev-domain", input.subdomain,
@@ -61,13 +67,32 @@ export class EasImpl extends implementing(appExpoModules.Eas).uses(appExpoModule
       "--id", input.id,
       ...promotionArgs,
       "--json", "--non-interactive",
-    ]));
-    const url = Promotion.$match(input.promotion, {
+    ];
+    const deployed = yield* this.easResult(deployArgs);
+    if (deployed.exitCode === 0) return yield* this.promotedUrl(input.promotion, yield* decodeJson(DeployOutput, "eas deploy", deployed.stdout));
+
+    // Deployments are immutable and the id is per commit, so a rerun of the same commit finds its deployment
+    // already there. Pointing the promotion at it again makes the rerun succeed, and rerunning an older
+    // commit's deploy roll back to it.
+    if (!deployed.stderr.includes(`already has a hosting deployment with the "${input.id}" deployment identifier`)) {
+      return yield* Effect.fail(`eas ${deployArgs.join(" ")} exited with code ${deployed.exitCode}:\n${deployed.stderr.trim()}`);
+    }
+    yield* Effect.log(`Deployment ${input.id} already exists; promoting it again`);
+    if (input.promotion._tag === "None") {
+      return { identifier: input.id, url: deploymentUrl(input.subdomain, input.id) };
+    }
+    const realiased = yield* this.eas(["deploy:alias", "--id", input.id, ...promotionArgs, "--json", "--non-interactive"]);
+    return yield* this.promotedUrl(input.promotion, yield* decodeJson(DeployOutput, "eas deploy:alias", realiased));
+  }
+
+  /** The URL `eas deploy` or `eas deploy:alias` reports for the promotion that was asked for. */
+  private *promotedUrl(promotion: Promotion, output: Schema.Schema.Type<typeof DeployOutput>): EffectGen<WebDeployment, string> {
+    const url = Promotion.$match(promotion, {
       Production: () => Option.map(output.production, ({ url }) => url),
       Alias: () => pipe(output.aliases, Option.flatMap((aliases) => Option.fromNullishOr(aliases[0])), Option.map(({ url }) => url)),
       None: () => Option.some(output.url),
     });
-    if (Option.isNone(url)) return yield* Effect.fail(`eas deploy did not report the URL for its ${input.promotion._tag} promotion:\n${JSON.stringify(output)}`);
+    if (Option.isNone(url)) return yield* Effect.fail(`EAS did not report the URL for its ${promotion._tag} promotion:\n${JSON.stringify(output)}`);
     return { identifier: output.identifier, url: url.value };
   }
 
@@ -126,15 +151,22 @@ export class EasImpl extends implementing(appExpoModules.Eas).uses(appExpoModule
       "--channel", input.channel,
       "--environment", input.easEnvironment,
       "--message", input.message,
+      "--input-dir", UPDATE_EXPORT_DIR,
       "--json", "--non-interactive",
     ], input.variables);
   }
 
   /** Runs the package's own EAS CLI (the `eas-cli` peer dependency) and returns its stdout. */
   private *eas(args: ReadonlyArray<string>, env: Readonly<Record<string, string>> = {}): EffectGen<string, string> {
-    const token = process.env[TOKEN_VARIABLE];
+    const result = yield* this.easResult(args, env);
+    if (result.exitCode !== 0) return yield* Effect.fail(`eas ${args.join(" ")} exited with code ${result.exitCode}:\n${result.stderr.trim()}`);
+    return result.stdout;
+  }
+
+  private *easResult(args: ReadonlyArray<string>, env: Readonly<Record<string, string>> = {}): EffectGen<ProcessResult, string> {
+    const token = process.env[EXPO_TOKEN_SECRET];
     if (token === undefined || token === "") {
-      return yield* Effect.fail(`${TOKEN_VARIABLE} is not set. EAS CLI authenticates CI with an access token (https://docs.expo.dev/accounts/programmatic-access/); add it to the repository's secrets and to jive.cicd.requiredSecrets`);
+      return yield* Effect.fail(`${EXPO_TOKEN_SECRET} is not set. EAS CLI authenticates CI with an access token (https://docs.expo.dev/accounts/programmatic-access/); add it to the repository's secrets and to jive.cicd.requiredSecrets`);
     }
     const binary = resolve(process.cwd(), "node_modules", ".bin", "eas");
     const exists = yield* pipe(
@@ -142,6 +174,6 @@ export class EasImpl extends implementing(appExpoModules.Eas).uses(appExpoModule
       Effect.mapError((e) => `Cannot check for ${binary}: ${e.message}`),
     );
     if (!exists) return yield* Effect.fail(`${binary} does not exist; the app must depend on "eas-cli" and have its dependencies installed`);
-    return yield* this.dependencies.Process.output({ command: binary, args, cwd: process.cwd(), env });
+    return yield* this.dependencies.Process.result({ command: binary, args, cwd: process.cwd(), env });
   }
 }

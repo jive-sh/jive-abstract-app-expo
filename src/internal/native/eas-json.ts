@@ -3,10 +3,21 @@ import type { AppExpoConfig } from "../public/manifest";
 /** The eas-cli release the generated eas.json asks for, matching this package's eas-cli peer range. */
 export const EAS_CLI_VERSION_RANGE = ">= 25.3.0";
 
+/** What eas-cli's eas.json validation accepts as a channel name. */
+export const CHANNEL_PATTERN = /^[a-z\d][a-z\d._-]*$/;
+
+/**
+ * The EAS Build profile and EAS Update channel an environment's native apps use: its name in lowercase,
+ * since EAS rejects capitals in channel names. The manifest check rejects names this maps onto one channel.
+ */
+export function nativeChannel(environment: string): string {
+  return environment.toLowerCase();
+}
+
 /**
  * eas.json, derived from package.json so the environments live in one place. EAS Build reads its build
- * profiles from this file (https://docs.expo.dev/build/eas-json/), so each Jive environment becomes the
- * profile of the same name, whose builds listen on the EAS Update channel of the same name
+ * profiles from this file (https://docs.expo.dev/build/eas-json/), so each Jive environment becomes a
+ * profile named by `nativeChannel`, whose builds listen on the EAS Update channel of that name
  * (https://docs.expo.dev/eas-update/deployment/#channel-configuration) and are built with that
  * environment's variables. The pull request environment gets no profile: previews deploy the web app only.
  *
@@ -14,8 +25,8 @@ export const EAS_CLI_VERSION_RANGE = ">= 25.3.0";
  * the pipeline edited would not survive into the next run.
  */
 export function renderEasJson(config: AppExpoConfig): string {
-  const build = Object.fromEntries(Object.entries(config.environments).map(([name, environment]) => [name, {
-    channel: name,
+  const build = Object.fromEntries(Object.entries(config.environments).map(([name, environment]) => [nativeChannel(name), {
+    channel: nativeChannel(name),
     distribution: config.native.distribution,
     environment: environment.easEnvironment,
     env: environment.variables,

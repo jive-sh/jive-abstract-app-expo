@@ -7,6 +7,7 @@ const cicd = (branches: Record<string, ReadonlyArray<string>>, previews: boolean
   deploy: { verb: "Deploy to", branches, previews, sequentially: true },
   runsOnPullRequests: true,
   runsOn: "ubuntu-latest",
+  requiredSecrets: ["EXPO_TOKEN"],
 });
 
 const appExpo = (input: Record<string, unknown>) => Schema.decodeUnknownSync(AppExpoSchema)({
@@ -73,3 +74,25 @@ describe("the rendered package.schema.json", () => {
     expect(appExpo.environments.additionalProperties.properties.variables.propertyNames.pattern).toBe("^EXPO_PUBLIC_[A-Z0-9_]+$");
   });
 });
+
+describe("the Expo token", () => {
+  test("must be among the secrets the pipeline passes to the hooks", () => {
+    const withoutToken = { ...cicd({ main: ["Production"] }, false), requiredSecrets: ["NPM_TOKEN"] };
+    expect(crossFieldErrors(withoutToken, appExpo({ environments: { Production: production } })).join("\n")).toContain('"EXPO_TOKEN"');
+  });
+});
+
+describe("native channel names", () => {
+  test("rejects environments that share a channel or cannot name one", () => {
+    const errors = crossFieldErrors(cicd({ main: ["Staging", "staging", "My Env"] }, false), appExpo({
+      environments: {
+        Staging: { ...production, web: { alias: "a" } },
+        staging: { ...production, web: { alias: "b" } },
+        "My Env": { ...production, web: { alias: "c" } },
+      },
+    }));
+    expect(errors.join("\n")).toContain('share the EAS Update channel "staging"');
+    expect(errors.join("\n")).toContain('"My Env" cannot name an EAS Update channel');
+  });
+});
+

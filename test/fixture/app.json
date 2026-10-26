@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "jive-abstract-app-expo-fixture",
+    "slug": "jive-abstract-app-expo-fixture",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "sh.jive.abstractappexpo.fixture"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "jive-sh",
+    "extra": {
+      "eas": {
+        "projectId": "37aea2ca-c01f-4347-8ac1-793d9f3aa131"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/37aea2ca-c01f-4347-8ac1-793d9f3aa131"
+    }
+  }
+}

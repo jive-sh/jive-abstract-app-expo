@@ -1,0 +1,88 @@
+{
+  "$schema": "./package.schema.json",
+  "name": "jive-abstract-app-expo-fixture",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "jive:cicd:get-config": "bun ../../src/entrypoints/jive-app-expo.ts cicd get-config",
+    "jive:cicd:build": "bun ../../src/entrypoints/jive-app-expo.ts cicd build",
+    "jive:cicd:audit": "bun ../../src/entrypoints/jive-app-expo.ts cicd audit",
+    "jive:cicd:deploy:url": "bun ../../src/entrypoints/jive-app-expo.ts cicd deploy-url",
+    "jive:cicd:upload-artifacts": "bun ../../src/entrypoints/jive-app-expo.ts cicd upload-artifacts",
+    "jive:cicd:deploy": "bun ../../src/entrypoints/jive-app-expo.ts cicd deploy",
+    "start": "expo start"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~58.0.15",
+    "expo": "~58.0.19",
+    "expo-status-bar": "~58.0.4",
+    "expo-updates": "~58.0.18",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-web": "^0.21.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3",
+    "eas-cli": "^25.3.0"
+  },
+  "jive": {
+    "cicd": {
+      "deploy": {
+        "verb": "Deploy to",
+        "branches": {
+          "main": [
+            "Staging",
+            "Production"
+          ]
+        },
+        "previews": true,
+        "sequentially": true
+      },
+      "runsOnPullRequests": true,
+      "runsOn": "ubuntu-latest",
+      "requiredSecrets": [
+        "EXPO_TOKEN"
+      ]
+    },
+    "app-expo": {
+      "web": {
+        "subdomain": "jive-abstract-app-expo-fixture",
+        "customDomain": null
+      },
+      "native": {
+        "platforms": [
+          "android"
+        ],
+        "distribution": "internal"
+      },
+      "environments": {
+        "Staging": {
+          "web": {
+            "alias": "staging"
+          },
+          "easEnvironment": "preview",
+          "variables": {
+            "EXPO_PUBLIC_ENVIRONMENT_LABEL": "Staging"
+          }
+        },
+        "Production": {
+          "web": "production",
+          "easEnvironment": "production",
+          "variables": {
+            "EXPO_PUBLIC_ENVIRONMENT_LABEL": "Production"
+          }
+        }
+      },
+      "preview": {
+        "easEnvironment": "preview",
+        "variables": {
+          "EXPO_PUBLIC_ENVIRONMENT_LABEL": "Preview"
+        }
+      }
+    }
+  }
+}

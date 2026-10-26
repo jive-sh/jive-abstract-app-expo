@@ -1,0 +1,12 @@
+{
+  "dashboardUrl": "https://expo.dev/projects/37aea2ca-c01f-4347-8ac1-793d9f3aa131/hosting/deployments",
+  "identifier": "repro-alias-1",
+  "url": "https://jive-abstract-app-expo-fixture--repro-alias-1.expo.app",
+  "aliases": [
+    {
+      "id": "01a177ab-0668-7eca-9f39-9d06c85d3445",
+      "url": "https://jive-abstract-app-expo-fixture--staging.expo.app",
+      "name": "staging"
+    }
+  ]
+}

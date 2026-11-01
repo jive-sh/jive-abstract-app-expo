@@ -36,7 +36,7 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
     const message = `${context.sourceBranch}@${context.sourceCommitSha}`;
     const { platforms } = config.native;
     const updatesNativeApps = environment !== PREVIEW_ENVIRONMENT && platforms.length > 0;
-    const appConfig = platforms.length > 0 || Option.isSome(config.web.customDomain) ? Option.some(yield* Expo.readAppConfig()) : Option.none<AppConfig>();
+    const appConfig = platforms.length > 0 || Option.isSome(config.domain) ? Option.some(yield* Expo.readAppConfig()) : Option.none<AppConfig>();
 
     // Builds start first: a project's first one generates its Android keystore, whose fingerprint the web
     // export's assetlinks.json must carry from the first release on.
@@ -55,7 +55,7 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
       }
     }
 
-    if (Option.isSome(config.web.customDomain) && platforms.length > 0 && Option.isSome(appConfig)) {
+    if (Option.isSome(config.domain) && platforms.length > 0 && Option.isSome(appConfig)) {
       yield* this.writeAppSiteFiles({ config, appConfig: appConfig.value, exportDir: webExportDir(environment) });
     }
 
@@ -69,7 +69,7 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
     });
     // deploy:plan already announced a URL, and the pipeline links to it; EAS reporting another means that
     // link would mislead. EAS reports production at its expo.app URL even when a custom domain is set.
-    const expected = Option.isSome(config.web.customDomain) && plan.value.promotion._tag === "Production"
+    const expected = Option.isSome(config.domain) && plan.value.promotion._tag === "Production"
       ? productionExpoAppUrl(config.web.subdomain)
       : plan.value.url;
     if (new URL(deployment.url).href !== new URL(expected).href) {
@@ -77,9 +77,9 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
     }
     yield* Effect.log(`Deployed ${deployment.identifier}; ${environment} is live at ${expected}`);
 
-    if (Option.isSome(config.web.customDomain) && plan.value.promotion._tag === "Production" && Option.isSome(appConfig)) {
+    if (Option.isSome(config.domain) && plan.value.promotion._tag === "Production" && Option.isSome(appConfig)) {
       const projectId = yield* this.projectId(appConfig.value);
-      const report = describeCustomDomain(yield* this.dependencies.CustomDomains.ensure({ projectId, hostname: config.web.customDomain.value }));
+      const report = describeCustomDomain(yield* this.dependencies.CustomDomains.ensure({ projectId, hostname: config.domain.value }));
       yield* (report.ready ? Effect.log(report.text) : Effect.logWarning(report.text));
     }
 

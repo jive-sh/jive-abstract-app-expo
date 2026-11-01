@@ -74,12 +74,12 @@ describe("the hooks, run against test/fixture", () => {
   });
 
   test("Expo builds the generated config's universal links into the Android manifest and iOS entitlements", () => {
-    // The fixture keeps customDomain null so no run of its pipeline could register a domain on its real EAS
+    // The fixture keeps domain null so no run of its pipeline could register a domain on its real EAS
     // project; this writes what build would generate for a domain on both platforms.
     const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, "package.json"), "utf8"));
     const config = Schema.decodeUnknownSync(AppExpoSchema)({
       ...fixture.jive["app-expo"],
-      web: { ...fixture.jive["app-expo"].web, customDomain: "fixture.example.com" },
+      domain: "fixture.example.com",
       native: { ...fixture.jive["app-expo"].native, platforms: ["ios", "android"] },
     });
     const generated = join(FIXTURE_DIR, GENERATED_APP_CONFIG_FILE);

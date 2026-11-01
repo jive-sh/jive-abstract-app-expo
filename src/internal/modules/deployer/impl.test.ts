@@ -21,7 +21,7 @@ function test(name: string, body: () => EffectGen<void, any, never>) {
 
 const FINGERPRINT = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase()).join(":");
 
-function packageJson(web: { readonly customDomain: string | null }, platforms: ReadonlyArray<NativePlatform> = ["android"]): PackageJson {
+function packageJson(input: { readonly domain: string | null }, platforms: ReadonlyArray<NativePlatform> = ["android"]): PackageJson {
   return Schema.decodeUnknownSync(PackageJsonSchema)({
     $schema: "./package.schema.json",
     name: "my-app",
@@ -36,7 +36,8 @@ function packageJson(web: { readonly customDomain: string | null }, platforms: R
         requiredSecrets: ["EXPO_TOKEN"],
       },
       "app-expo": {
-        web: { subdomain: "my-app", customDomain: web.customDomain },
+        web: { subdomain: "my-app" },
+        domain: input.domain,
         native: { platforms, distribution: "internal" },
         environments: {
           Staging: { web: { alias: "staging" }, easEnvironment: "preview", variables: { EXPO_PUBLIC_LABEL: "Staging" } },
@@ -126,7 +127,7 @@ function deployWith(input: {
     makeDirectory: () => Effect.void,
     writeFileString: (path, content) => Effect.sync(() => record("writeFile", { path, content: JSON.parse(content) })),
   });
-  const pkg = PackageImpl.mockLayer({ *load(): EffectGen<PackageJson, string> { return input.packageJson ?? packageJson({ customDomain: null }); } });
+  const pkg = PackageImpl.mockLayer({ *load(): EffectGen<PackageJson, string> { return input.packageJson ?? packageJson({ domain: null }); } });
   const expo = ExpoImpl.mockLayer({ *readAppConfig(): EffectGen<AppConfig, string> { return appConfig; } });
   return pipe(
     effunct(function* (): EffectGen<void, string, AppExpoModules.Deployer> {
@@ -188,7 +189,7 @@ describe("deploy", () => {
 });
 
 describe("deploy with a custom domain", () => {
-  const withDomain = (platforms: ReadonlyArray<NativePlatform> = ["android"]) => packageJson({ customDomain: "app.example.com" }, platforms);
+  const withDomain = (platforms: ReadonlyArray<NativePlatform> = ["android"]) => packageJson({ domain: "app.example.com" }, platforms);
 
   test("production writes assetlinks.json from the keystore the build created, deploys, registers the domain, then updates", function* () {
     const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app", packageJson: withDomain() });
@@ -238,7 +239,7 @@ describe("deploy with a custom domain", () => {
     expect(methods(calls)).toEqual(["deployWeb", "ensureCustomDomain"]);
   });
 
-  test("with customDomain null, nothing reads credentials, writes files or touches the domain", function* () {
+  test("with domain null, nothing reads credentials, writes files or touches the domain", function* () {
     const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app" });
     expect(methods(calls).filter((method) => ["androidFingerprints", "appleTeamId", "writeFile", "ensureCustomDomain"].includes(method))).toEqual([]);
   });

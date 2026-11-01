@@ -9,7 +9,7 @@ import { PREVIEW_ENVIRONMENT, type AppExpoConfig } from "../public/manifest";
  * so both derive it here from configuration and the pipeline context alone. EAS Hosting makes that possible:
  * a deployment is reachable at `https://<subdomain>--<id>.expo.app` for an id the deployer chooses, at
  * `https://<subdomain>--<alias>.expo.app` once given an alias, and at `https://<subdomain>.expo.app` (and the
- * custom domain) once promoted to production
+ * domain) once promoted to production
  * (https://docs.expo.dev/eas/hosting/deployments-and-aliases/#terminology).
  */
 export type Promotion = Data.TaggedEnum<{
@@ -59,7 +59,7 @@ function expoAppUrl(label: string): string {
   return `https://${label}.expo.app/`;
 }
 
-/** Where the production deployment is reachable on EAS's own domain, custom domain or not. */
+/** Where the production deployment is reachable on EAS's own domain, whether or not the app has a domain. */
 export function productionExpoAppUrl(subdomain: string): string {
   return expoAppUrl(subdomain);
 }
@@ -76,7 +76,8 @@ export function planWebDeployment(input: {
   readonly context: PipelineContext;
 }): Option.Option<WebDeploymentPlan> {
   const { config, environment, context } = input;
-  const { subdomain, customDomain } = config.web;
+  const { subdomain } = config.web;
+  const { domain } = config;
   const id = (source: string) => deploymentId({ source, context, subdomain });
 
   if (environment === PREVIEW_ENVIRONMENT) {
@@ -93,7 +94,7 @@ export function planWebDeployment(input: {
     return Option.some({
       id: id("production"),
       promotion: Promotion.Production(),
-      url: Option.isSome(customDomain) ? `https://${customDomain.value}/` : productionExpoAppUrl(subdomain),
+      url: Option.isSome(domain) ? `https://${domain.value}/` : productionExpoAppUrl(subdomain),
     });
   }
   const { alias } = configured.web;

@@ -50,9 +50,9 @@
     },
     "app-expo": {
       "web": {
-        "subdomain": "jive-abstract-app-expo-fixture",
-        "customDomain": null
+        "subdomain": "jive-abstract-app-expo-fixture"
       },
+      "domain": null,
       "native": {
         "platforms": [
           "android"

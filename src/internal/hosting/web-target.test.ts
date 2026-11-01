@@ -8,7 +8,8 @@ const decode = Schema.decodeUnknownSync(AppExpoSchema);
 
 function config(overrides: Record<string, unknown> = {}): AppExpoConfig {
   return decode({
-    web: { subdomain: "my-app", customDomain: null },
+    web: { subdomain: "my-app" },
+    domain: null,
     native: { platforms: [], distribution: "internal" },
     environments: {
       Production: { web: "production", easEnvironment: "production", variables: { EXPO_PUBLIC_SERVER_URL: "https://api.example.com" } },
@@ -41,8 +42,8 @@ describe("planWebDeployment", () => {
     });
   });
 
-  test("production is served at the custom domain once one is configured", () => {
-    const configured = plan("Production", pullRequest, { web: { subdomain: "my-app", customDomain: "example.com" } });
+  test("production is served at the domain once one is configured", () => {
+    const configured = plan("Production", pullRequest, { domain: "example.com" });
     expect(Option.getOrThrow(configured).url).toBe("https://example.com/");
   });
 

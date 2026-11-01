@@ -61,11 +61,11 @@ const Variables = Schema.Record(Schema.String, Schema.String)
 /**
  * Where an environment's web build is served. Every EAS Hosting deployment is immutable and reachable at its
  * own URL; an alias is a name that points at the newest one, and production is the one alias served at the
- * project's own subdomain and custom domain.
+ * project's own subdomain and its domain.
  */
 const WebTarget = Schema.Union([
   Schema.Literal("production").annotate({
-    description: "Promote this environment's deployment to production, served at https://<subdomain>.expo.app and the custom domain.",
+    description: "Promote this environment's deployment to production, served at https://<subdomain>.expo.app and the domain.",
   }),
   Schema.Struct({
     alias: DnsLabel.annotate({ description: 'Alias served at https://<subdomain>--<alias>.expo.app, e.g. "staging".' }),
@@ -104,9 +104,9 @@ export const AppExpoSchema = Schema.Struct({
     subdomain: DnsLabel.check(Schema.isMinLength(3)).annotate({
       description: 'The EAS Hosting preview subdomain name: production is served at https://<subdomain>.expo.app. EAS reserves it on the first deploy and it can never be reused, even after the project is deleted.',
     }),
-    customDomain: Schema.OptionFromNullOr(Hostname).annotate({
-      description: 'The domain production is served at, e.g. "app.example.com", or null. The production deploy registers it on the EAS project (a paid-plan feature) and prints the DNS records it needs, which you create at your DNS provider. With native platforms on, the build also makes it the apps\' universal link (iOS) and App Link (Android) domain. null changes nothing: production stays at https://<subdomain>.expo.app.',
-    }),
+  }),
+  domain: Schema.OptionFromNullOr(Hostname).annotate({
+    description: 'The app\'s domain, e.g. "app.example.com", or null. The production deploy registers it on the EAS project (a paid-plan feature) and prints the DNS records it needs, which you create at your DNS provider. With native platforms on, the build also makes it the apps\' universal link (iOS) and App Link (Android) domain, and every web export serves the files that let the apps open its links and use its passkeys. null changes nothing: production stays at https://<subdomain>.expo.app.',
   }),
   native: NativeSchema,
   environments: Schema.Record(Schema.String, EnvironmentSchema).annotate({
@@ -163,8 +163,8 @@ export function crossFieldErrors(cicd: CicdConfig, appExpo: AppExpoConfig): Read
   if (production.length > 1) {
     errors.push(`Only one environment can be served as production; ${production.map((name) => `"${name}"`).join(", ")} all are`);
   }
-  if (production.length === 0 && Option.isSome(appExpo.web.customDomain)) {
-    errors.push(`jive.${ABSTRACT_KEY}.web.customDomain serves production, so one environment must have "web": "production"`);
+  if (production.length === 0 && Option.isSome(appExpo.domain)) {
+    errors.push(`jive.${ABSTRACT_KEY}.domain serves production, so one environment must have "web": "production"`);
   }
   const byAlias = new Map<string, Array<string>>();
   for (const { name, web } of targets) {

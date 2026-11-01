@@ -11,7 +11,8 @@ const cicd = (branches: Record<string, ReadonlyArray<string>>, previews: boolean
 });
 
 const appExpo = (input: Record<string, unknown>) => Schema.decodeUnknownSync(AppExpoSchema)({
-  web: { subdomain: "my-app", customDomain: null },
+  web: { subdomain: "my-app" },
+  domain: null,
   native: { platforms: ["android"], distribution: "internal" },
   environments: {},
   preview: null,
@@ -26,14 +27,14 @@ describe("AppExpoSchema", () => {
   });
 
   test("rejects a subdomain or alias EAS would rewrite", () => {
-    expect(() => appExpo({ web: { subdomain: "My_App", customDomain: null } })).toThrow();
+    expect(() => appExpo({ web: { subdomain: "My_App" } })).toThrow();
     expect(() => appExpo({ environments: { Staging: { ...production, web: { alias: "Staging" } } } })).toThrow();
   });
 
-  test("takes a custom domain only as a bare lowercase hostname", () => {
-    expect(appExpo({ web: { subdomain: "my-app", customDomain: "app.example.com" } }).web.customDomain).toEqual(Option.some("app.example.com"));
-    for (const customDomain of ["https://app.example.com", "app.example.com/", "App.Example.com", "localhost", "app.example.com:443", ""]) {
-      expect(() => appExpo({ web: { subdomain: "my-app", customDomain } })).toThrow();
+  test("takes a domain only as a bare lowercase hostname", () => {
+    expect(appExpo({ domain: "app.example.com" }).domain).toEqual(Option.some("app.example.com"));
+    for (const domain of ["https://app.example.com", "app.example.com/", "App.Example.com", "localhost", "app.example.com:443", ""]) {
+      expect(() => appExpo({ domain })).toThrow();
     }
   });
 
@@ -60,11 +61,11 @@ describe("crossFieldErrors", () => {
     expect(crossFieldErrors(cicd({ main: ["Production"] }, false), appExpo({ environments, preview: { easEnvironment: "preview", variables: {} } }))).toHaveLength(1);
   });
 
-  test("requires a production environment for the custom domain to serve", () => {
-    const web = { subdomain: "my-app", customDomain: "app.example.com" };
+  test("requires a production environment for the domain to serve", () => {
+    const domain = "app.example.com";
     const staging = { ...production, web: { alias: "staging" } };
-    expect(crossFieldErrors(cicd({ main: ["Staging"] }, false), appExpo({ web, environments: { Staging: staging } })).join("\n")).toContain("customDomain serves production");
-    expect(crossFieldErrors(cicd({ main: ["Production"] }, false), appExpo({ web, environments: { Production: production } }))).toEqual([]);
+    expect(crossFieldErrors(cicd({ main: ["Staging"] }, false), appExpo({ domain, environments: { Staging: staging } })).join("\n")).toContain("domain serves production");
+    expect(crossFieldErrors(cicd({ main: ["Production"] }, false), appExpo({ domain, environments: { Production: production } }))).toEqual([]);
   });
 
   test("allows one production environment and one environment per alias", () => {

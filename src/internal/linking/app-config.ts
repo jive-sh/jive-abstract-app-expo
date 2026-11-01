@@ -2,7 +2,7 @@ import { Option } from "effect";
 import type { AppExpoConfig } from "../public/manifest";
 
 /**
- * Universal links (iOS) and App Links (Android) for the app's custom domain, configured without the app's own
+ * Universal links (iOS) and App Links (Android) for the app's domain, configured without the app's own
  * Expo config naming them. `build` writes `GENERATED_APP_CONFIG_FILE` beside the app's app.json; Expo evaluates
  * it with app.json's contents as `config` (https://docs.expo.dev/workflow/configuration/),
  * so `expo config`, `eas update` and the `expo prebuild` EAS Build runs on its own servers all see the result.
@@ -28,11 +28,11 @@ export interface NativeLinkingConfig {
   readonly android?: { readonly intentFilters: ReadonlyArray<unknown> };
 }
 
-/** The native linking config for the custom domain, or None when there is no domain or no native app to link. */
+/** The native linking config for the domain, or None when there is no domain or no native app to link. */
 export function nativeLinkingConfig(config: AppExpoConfig): Option.Option<NativeLinkingConfig> {
   const { platforms } = config.native;
   if (platforms.length === 0) return Option.none();
-  return Option.map(config.web.customDomain, (domain) => ({
+  return Option.map(config.domain, (domain) => ({
     ...(platforms.includes("ios") ? { ios: { associatedDomains: [`applinks:${domain}`] } } : {}),
     ...(platforms.includes("android")
       ? {

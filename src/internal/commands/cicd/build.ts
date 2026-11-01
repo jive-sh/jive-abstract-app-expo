@@ -19,7 +19,7 @@ export const build = makeCicdCommand(
     const linking = nativeLinkingConfig(config);
     yield* expo.writeGeneratedConfig(Option.map(linking, renderAppConfig));
     if (Option.isSome(linking)) {
-      yield* Effect.log(`Wrote ${GENERATED_APP_CONFIG_FILE}, which makes ${Option.getOrThrow(config.web.customDomain)} the universal link and App Link domain of: ${config.native.platforms.join(", ")}`);
+      yield* Effect.log(`Wrote ${GENERATED_APP_CONFIG_FILE}, which makes ${Option.getOrThrow(config.domain)} the universal link and App Link domain of: ${config.native.platforms.join(", ")}`);
     }
 
     const appConfig = yield* expo.readAppConfig();

@@ -10,7 +10,7 @@ A [Jive](https://github.com/jive-sh/jive) abstract for [Expo](https://expo.dev) 
   [EAS Build](https://docs.expo.dev/build/introduction/) only when no build exists for the app's runtime
   version, then publishes the code as an [EAS Update](https://docs.expo.dev/eas-update/introduction/) to that
   environment's channel.
-- **Custom domain**: with `web.customDomain` set, the production deploy registers it on the EAS project and
+- **Domain**: with `domain` set, the production deploy registers it on the EAS project and
   prints the DNS records it needs. With native platforms on, the domain also opens the Android and iOS apps:
   the build configures App Links and universal links, and every web export serves the files that prove the
   domain belongs to the apps. The app's own code and Expo config hold no linking setup.
@@ -58,7 +58,8 @@ Its CLI is `jive-app-expo`, so the target command for a new app is `jive create 
       "requiredSecrets": ["EXPO_TOKEN"]
     },
     "app-expo": {
-      "web": { "subdomain": "my-app", "customDomain": null },
+      "web": { "subdomain": "my-app" },
+      "domain": null,
       "native": { "platforms": ["android"], "distribution": "internal" },
       "environments": {
         "Staging": {
@@ -86,7 +87,7 @@ that span fields:
   some branch.
 - `preview` is set exactly when `cicd.deploy.previews` is true.
 - At most one environment is `"production"`, and no two environments share an alias.
-- `web.customDomain` is null or a bare lowercase hostname (`app.example.com`, never `https://…`), and when set
+- `domain` is null or a bare lowercase hostname (`app.example.com`, never `https://…`), and when set
   one environment is `"production"`, since that is the deployment the domain serves.
 - `cicd.requiredSecrets` includes `EXPO_TOKEN`, because the pipeline passes the hooks only the secrets
   listed there.
@@ -104,7 +105,7 @@ The app's own Expo config (`app.json` or `app.config.*`) must also:
 - For native platforms, set `expo.runtimeVersion` to `{"policy": "appVersion"}` or a literal,
   `expo.updates.url` to `https://u.expo.dev/<projectId>`, and `expo.android.package` and/or
   `expo.ios.bundleIdentifier`.
-- With a custom domain and native platforms, have no `app.config.*` of its own: the build generates
+- With a domain and native platforms, have no `app.config.*` of its own: the build generates
   `app.config.cjs`, and Expo reads only one dynamic config. Keep `app.config.cjs` out of `.gitignore` too (it
   must reach EAS Build, which uploads only files git doesn't ignore) and out of commits (every build rewrites it).
 
@@ -121,17 +122,17 @@ role is enough to create the project with `eas init` and to deploy, though not t
 | Hook | Behavior |
 | --- | --- |
 | `get-config` | Prints the validated `jive` block as JSON. |
-| `build` | Writes `app.config.cjs` when a custom domain and native platforms are set (and removes one an earlier build wrote otherwise), checks `package.json` and the Expo config, writes `eas.json` when native platforms are on, and runs `expo export --platform web` once per environment into `dist/web/<environment>`, with that environment's variables. It never contacts EAS. |
+| `build` | Writes `app.config.cjs` when a domain and native platforms are set (and removes one an earlier build wrote otherwise), checks `package.json` and the Expo config, writes `eas.json` when native platforms are on, and runs `expo export --platform web` once per environment into `dist/web/<environment>`, with that environment's variables. It never contacts EAS. |
 | `audit` | Checks every environment has a web export. Replace this script to run the app's own tests. |
 | `deploy:plan` | Plans a deploy (`{"deploy":true,"url":…}`) to the environment's web URL, derived from configuration alone (table below). |
 | `upload-artifacts` | Nothing; the pipeline's artifact already carries `dist/`. |
-| `deploy` | In order: for each native platform, runs `eas build` if no build of the environment's profile exists for the runtime version; with a custom domain, writes the domain's `.well-known` files into the export; runs `eas deploy` for the export and fails if EAS reports a URL other than the one `deploy:plan` printed; for production with a custom domain, registers the domain and reports its DNS records; last, runs `eas update` to the environment's channel for each native platform, bundling into `dist/eas-update` so the other environments' web exports survive. Previews skip the native steps. |
+| `deploy` | In order: for each native platform, runs `eas build` if no build of the environment's profile exists for the runtime version; with a domain, writes the domain's `.well-known` files into the export; runs `eas deploy` for the export and fails if EAS reports a URL other than the one `deploy:plan` printed; for production with a domain, registers it on the EAS project and reports its DNS records; last, runs `eas update` to the environment's channel for each native platform, bundling into `dist/eas-update` so the other environments' web exports survive. Previews skip the native steps. |
 
 Where each environment's web app is served:
 
 | Environment config | `eas deploy` flag | URL |
 | --- | --- | --- |
-| `"web": "production"` | `--prod` | `https://<subdomain>.expo.app/`, or `https://<customDomain>/` when one is set (it answers once its DNS records are in place) |
+| `"web": "production"` | `--prod` | `https://<subdomain>.expo.app/`, or `https://<domain>/` when one is set (it answers once its DNS records are in place) |
 | `"web": { "alias": "staging" }` | `--alias staging` | `https://<subdomain>--staging.expo.app/` |
 | `Preview` (pull request 42 at commit `1a2b3c4d…`) | `--id pr-42-1a2b3c4d` | `https://<subdomain>--pr-42-1a2b3c4d.expo.app/` |
 
@@ -149,14 +150,14 @@ closes, and previews don't use up aliases, which EAS caps per plan (5 on Free,
 its `channel` both the environment's name in lowercase (EAS rejects capitals in channel names). Keep it out
 of git.
 
-## Custom domain and universal links
+## Domain and universal links
 
-Set `"web": { "subdomain": "my-app", "customDomain": "app.example.com" }` and nothing else. With
-`"customDomain": null` none of this runs.
+Set `"domain": "app.example.com"` and nothing else. With `"domain": null` none of this runs. EAS calls a domain
+registered on a project a custom domain; that is what the deploy registers.
 
 **Registering the domain.** Each production deploy reads the EAS project's custom domain through Expo's
-GraphQL API and registers `customDomain` only if it is missing. EAS holds one per project, so a different
-hostname registered there (by the dashboard or an earlier `customDomain`) is removed first. An already
+GraphQL API and registers `domain` only if it is missing. EAS holds one per project, so a different
+hostname registered there (by the dashboard or an earlier `domain`) is removed first. An already
 registered domain is only checked again. Then the deploy log lists every DNS record the domain needs, whether
 EAS found each one, and EAS's verification and SSL status:
 
@@ -172,7 +173,7 @@ Custom domain app.example.com: registered on the EAS project by this deploy.
 Creating the records is yours, at your DNS provider. A missing record logs a warning and the deploy still
 succeeds, since the records can only be created after the first deploy prints them; each later deploy reports
 the status again. Custom domains need a paid EAS plan ([pricing](https://expo.dev/pricing)); on a free plan
-the production deploy fails with EAS's refusal and that requirement. Setting `customDomain` back to null leaves
+the production deploy fails with EAS's refusal and that requirement. Setting `domain` back to null leaves
 the registered domain in place.
 
 **Universal links and App Links.** With native platforms on, `build` writes `app.config.cjs`. Expo evaluates
@@ -205,7 +206,7 @@ team ID until its credentials are set up, and an Android keystore appears with t
 
 - **Previews deploy the web app only.** A native preview would need a build listening on a per-pull-request
   channel, which costs a build per pull request.
-- **The custom domain belongs to the app, not to an environment.** `customDomain` is set once and always
+- **The domain belongs to the app, not to an environment.** `domain` is set once and always
   serves production; the other environments stay on `expo.app` aliases. EAS's registration accepts an alias
   name, so per-environment domains are possible later, but the manifest has no field for them.
 - **DNS records are not created.** The deploy prints them; creating them waits on a DNS connector.
@@ -238,9 +239,9 @@ everything up to the point of contacting EAS:
   types.
 - `test/hooks.test.ts` runs `get-config`, `build`, `audit` and `deploy:plan` against the fixture app in
   `test/fixture`, and checks each environment's bundle carries only its own variables. It also writes the
-  config `build` generates for a custom domain and checks, with the fixture's own Expo CLI
+  config `build` generates for a domain and checks, with the fixture's own Expo CLI
   (`expo config --type introspect`), that the Android manifest gets the verified intent filter and the iOS
-  entitlements the associated domain. The fixture keeps `customDomain: null`, because it is linked to a real
+  entitlements the associated domain. The fixture keeps `domain: null`, because it is linked to a real
   EAS project.
 
 What only an app's own pipeline can test, against its real EAS project: that EAS accepts the token and

@@ -7,8 +7,9 @@ import { join } from "node:path";
 import { AppExpoSchema } from "../public/manifest";
 import { GENERATED_APP_CONFIG_MARKER, nativeLinkingConfig, renderAppConfig } from "./app-config";
 
-const config = (customDomain: string | null, platforms: ReadonlyArray<string>) => Schema.decodeUnknownSync(AppExpoSchema)({
-  web: { subdomain: "my-app", customDomain },
+const config = (domain: string | null, platforms: ReadonlyArray<string>) => Schema.decodeUnknownSync(AppExpoSchema)({
+  web: { subdomain: "my-app" },
+  domain,
   native: { platforms, distribution: "internal" },
   environments: { Production: { web: "production", easEnvironment: "production", variables: {} } },
   preview: null,
@@ -40,7 +41,7 @@ describe("nativeLinkingConfig", () => {
     expect(Object.keys(Option.getOrThrow(nativeLinkingConfig(config("app.example.com", ["android"]))))).toEqual(["android"]);
   });
 
-  test("is None without a custom domain or without native apps, so nothing is generated", () => {
+  test("is None without a domain or without native apps, so nothing is generated", () => {
     expect(Option.isNone(nativeLinkingConfig(config(null, ["ios", "android"])))).toBe(true);
     expect(Option.isNone(nativeLinkingConfig(config("app.example.com", [])))).toBe(true);
   });

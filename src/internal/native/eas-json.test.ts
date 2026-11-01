@@ -5,7 +5,8 @@ import { renderEasJson } from "./eas-json";
 
 test("each environment becomes a build profile and update channel named in lowercase, preview excluded", () => {
   const config = Schema.decodeUnknownSync(AppExpoSchema)({
-    web: { subdomain: "my-app", customDomain: null },
+    web: { subdomain: "my-app" },
+    domain: null,
     native: { platforms: ["android"], distribution: "internal" },
     environments: {
       Production: { web: "production", easEnvironment: "production", variables: { EXPO_PUBLIC_SERVER_URL: "https://api.example.com" } },

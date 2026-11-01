@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { makeJivePackageJsonSchema, type CicdConfig } from "jive-abstract-library";
 import { CHANNEL_PATTERN, nativeChannel } from "../native/eas-json";
 
@@ -23,6 +23,16 @@ export const ABSTRACT_KEY = "app-expo";
  * URL this abstract predicts differ from the one EAS assigns.
  */
 const DnsLabel = Schema.NonEmptyString.check(Schema.isPattern(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/));
+
+/**
+ * A bare lowercase hostname of two or more DNS labels, such as "app.example.com": no scheme, port or path. It
+ * becomes `applinks:<hostname>` and an intent filter's `host`, where a scheme is the documented mistake that
+ * silently breaks universal links (https://docs.expo.dev/linking/ios-universal-links/).
+ */
+const Hostname = Schema.NonEmptyString.check(
+  Schema.isMaxLength(253),
+  Schema.isPattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
+);
 
 const EasEnvironment = Schema.Literals(["production", "preview", "development"]).annotate({
   description: 'The EAS environment whose server-side variables EAS applies to this environment\'s deploys, builds and updates (https://docs.expo.dev/eas/environment-variables/). eas.json accepts only these three.',
@@ -94,8 +104,8 @@ export const AppExpoSchema = Schema.Struct({
     subdomain: DnsLabel.check(Schema.isMinLength(3)).annotate({
       description: 'The EAS Hosting preview subdomain name: production is served at https://<subdomain>.expo.app. EAS reserves it on the first deploy and it can never be reused, even after the project is deleted.',
     }),
-    customDomain: Schema.OptionFromNullOr(Schema.NonEmptyString).annotate({
-      description: 'The domain production is served at once it is assigned in the project\'s EAS Hosting settings (a paid-plan feature), e.g. "example.com", or null. Only the deploy URL depends on it; assigning it and its DNS records is done outside this abstract.',
+    customDomain: Schema.OptionFromNullOr(Hostname).annotate({
+      description: 'The domain production is served at, e.g. "app.example.com", or null. The production deploy registers it on the EAS project (a paid-plan feature) and prints the DNS records it needs, which you create at your DNS provider. With native platforms on, the build also makes it the apps\' universal link (iOS) and App Link (Android) domain. null changes nothing: production stays at https://<subdomain>.expo.app.',
     }),
   }),
   native: NativeSchema,
@@ -152,6 +162,9 @@ export function crossFieldErrors(cicd: CicdConfig, appExpo: AppExpoConfig): Read
   const production = targets.filter(({ web }) => web === "production").map(({ name }) => name);
   if (production.length > 1) {
     errors.push(`Only one environment can be served as production; ${production.map((name) => `"${name}"`).join(", ")} all are`);
+  }
+  if (production.length === 0 && Option.isSome(appExpo.web.customDomain)) {
+    errors.push(`jive.${ABSTRACT_KEY}.web.customDomain serves production, so one environment must have "web": "production"`);
   }
   const byAlias = new Map<string, Array<string>>();
   for (const { name, web } of targets) {

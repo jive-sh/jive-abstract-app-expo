@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { CicdSchema } from "jive-abstract-library";
 import { ABSTRACT_KEY, AppExpoSchema, PackageJsonSchema, crossFieldErrors } from "./manifest";
 
@@ -30,6 +30,13 @@ describe("AppExpoSchema", () => {
     expect(() => appExpo({ environments: { Staging: { ...production, web: { alias: "Staging" } } } })).toThrow();
   });
 
+  test("takes a custom domain only as a bare lowercase hostname", () => {
+    expect(appExpo({ web: { subdomain: "my-app", customDomain: "app.example.com" } }).web.customDomain).toEqual(Option.some("app.example.com"));
+    for (const customDomain of ["https://app.example.com", "app.example.com/", "App.Example.com", "localhost", "app.example.com:443", ""]) {
+      expect(() => appExpo({ web: { subdomain: "my-app", customDomain } })).toThrow();
+    }
+  });
+
   test("rejects an EAS environment eas.json cannot name", () => {
     expect(() => appExpo({ environments: { Production: { ...production, easEnvironment: "staging" } } })).toThrow();
   });
@@ -51,6 +58,13 @@ describe("crossFieldErrors", () => {
     const environments = { Production: production };
     expect(crossFieldErrors(cicd({ main: ["Production"] }, true), appExpo({ environments }))).toHaveLength(1);
     expect(crossFieldErrors(cicd({ main: ["Production"] }, false), appExpo({ environments, preview: { easEnvironment: "preview", variables: {} } }))).toHaveLength(1);
+  });
+
+  test("requires a production environment for the custom domain to serve", () => {
+    const web = { subdomain: "my-app", customDomain: "app.example.com" };
+    const staging = { ...production, web: { alias: "staging" } };
+    expect(crossFieldErrors(cicd({ main: ["Staging"] }, false), appExpo({ web, environments: { Staging: staging } })).join("\n")).toContain("customDomain serves production");
+    expect(crossFieldErrors(cicd({ main: ["Production"] }, false), appExpo({ web, environments: { Production: production } }))).toEqual([]);
   });
 
   test("allows one production environment and one environment per alias", () => {

@@ -2,7 +2,8 @@ import { Effect, FileSystem, Option, Schema, SchemaIssue, pipe } from "effect";
 import { implementing, type EffectGen } from "effective-modules";
 import { resolve } from "node:path";
 import { Promotion, deploymentUrl } from "../../hosting/web-target";
-import { EXPO_TOKEN_SECRET, type NativePlatform } from "../../public/manifest";
+import { readExpoToken } from "../../common/expo-token";
+import type { NativePlatform } from "../../public/manifest";
 import { appExpoModules } from "../index";
 import type { ProcessResult } from "../process/interface";
 import type { IEas, NativeBuild, WebDeployment } from "./interface";
@@ -164,10 +165,7 @@ export class EasImpl extends implementing(appExpoModules.Eas).uses(appExpoModule
   }
 
   private *easResult(args: ReadonlyArray<string>, env: Readonly<Record<string, string>> = {}): EffectGen<ProcessResult, string> {
-    const token = process.env[EXPO_TOKEN_SECRET];
-    if (token === undefined || token === "") {
-      return yield* Effect.fail(`${EXPO_TOKEN_SECRET} is not set. EAS CLI authenticates CI with an access token (https://docs.expo.dev/accounts/programmatic-access/); add it to the repository's secrets and to jive.cicd.requiredSecrets`);
-    }
+    yield* readExpoToken();
     const binary = resolve(process.cwd(), "node_modules", ".bin", "eas");
     const exists = yield* pipe(
       this.getDependency(FileSystem.FileSystem).exists(binary),

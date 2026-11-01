@@ -1,5 +1,6 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { appConfigErrors } from "../../eas-project/requirements";
+import { GENERATED_APP_CONFIG_FILE, nativeLinkingConfig, renderAppConfig } from "../../linking/app-config";
 import { deployableEnvironments } from "../../hosting/web-target";
 import { appExpoModules } from "../../modules";
 import { renderEasJson } from "../../native/eas-json";
@@ -9,10 +10,17 @@ import { webExportDir } from "../../common/web-export";
 
 export const build = makeCicdCommand(
   "build",
-  "check the app is ready to deploy, write eas.json, and export the web app once per environment",
+  "check the app is ready to deploy, write eas.json and the universal links config, and export the web app once per environment",
   function* () {
     const config = (yield* (yield* appExpoModules.Package).load()).jive[ABSTRACT_KEY];
     const expo = yield* appExpoModules.Expo;
+
+    // Written first, so the checks below, the exports and every later Expo and EAS command read the same config.
+    const linking = nativeLinkingConfig(config);
+    yield* expo.writeGeneratedConfig(Option.map(linking, renderAppConfig));
+    if (Option.isSome(linking)) {
+      yield* Effect.log(`Wrote ${GENERATED_APP_CONFIG_FILE}, which makes ${Option.getOrThrow(config.web.customDomain)} the universal link and App Link domain of: ${config.native.platforms.join(", ")}`);
+    }
 
     const appConfig = yield* expo.readAppConfig();
     const errors = appConfigErrors(appConfig, config);

@@ -1,6 +1,7 @@
 import { Effect, FileSystem, Option, Schema, SchemaIssue, pipe } from "effect";
 import { implementing, type EffectGen } from "effective-modules";
 import { resolve } from "node:path";
+import { DYNAMIC_APP_CONFIG_FILES, GENERATED_APP_CONFIG_FILE, GENERATED_APP_CONFIG_MARKER } from "../../linking/app-config";
 import { appExpoModules } from "../index";
 import type { AppConfig, IExpo } from "./interface";
 
@@ -71,6 +72,35 @@ export class ExpoImpl extends implementing(appExpoModules.Expo).uses(appExpoModu
       cwd: process.cwd(),
       env: input.variables,
     });
+  }
+
+  *writeGeneratedConfig(source: Option.Option<string>): EffectGen<void, string> {
+    const fs = this.getDependency(FileSystem.FileSystem);
+    const generatedPath = resolve(process.cwd(), GENERATED_APP_CONFIG_FILE);
+    const isGenerated = (path: string) => pipe(
+      fs.readFileString(path),
+      Effect.map((text) => text.startsWith(GENERATED_APP_CONFIG_MARKER)),
+      Effect.mapError((e) => `Cannot read ${path}: ${e.message}`),
+    );
+
+    const ownConfigs: Array<string> = [];
+    for (const file of DYNAMIC_APP_CONFIG_FILES) {
+      const path = resolve(process.cwd(), file);
+      const exists = yield* pipe(fs.exists(path), Effect.mapError((e) => `Cannot check for ${path}: ${e.message}`));
+      if (exists && !(path === generatedPath && (yield* isGenerated(path)))) ownConfigs.push(file);
+    }
+
+    if (Option.isNone(source)) {
+      const stale = yield* pipe(fs.exists(generatedPath), Effect.mapError((e) => `Cannot check for ${generatedPath}: ${e.message}`));
+      if (stale && !ownConfigs.includes(GENERATED_APP_CONFIG_FILE)) {
+        yield* pipe(fs.remove(generatedPath), Effect.mapError((e) => `Cannot remove ${generatedPath}: ${e.message}`));
+      }
+      return;
+    }
+    if (ownConfigs.length > 0) {
+      return yield* Effect.fail(`The app has its own ${ownConfigs.join(", ")}, but this abstract configures universal links by generating ${GENERATED_APP_CONFIG_FILE}, and Expo reads only one dynamic config (https://docs.expo.dev/workflow/configuration/). Move its settings into app.json.`);
+    }
+    yield* pipe(fs.writeFileString(generatedPath, source.value), Effect.mapError((e) => `Cannot write ${generatedPath}: ${e.message}`));
   }
 
   /** The app's own Expo CLI: the version its `expo` dependency pins, as Expo requires. */

@@ -29,4 +29,9 @@ export interface IExpo {
    * (https://docs.expo.dev/guides/environment-variables/).
    */
   exportWeb(input: { readonly outputDir: string; readonly variables: Readonly<Record<string, string>> }): EffectGen<void, string>;
+  /**
+   * Writes the dynamic config Expo evaluates over the app's app.json, or with None removes the one an earlier
+   * build wrote. Fails when the app has a dynamic config of its own, since Expo reads only one.
+   */
+  writeGeneratedConfig(source: Option.Option<string>): EffectGen<void, string>;
 }

@@ -126,7 +126,7 @@ role is enough to create the project with `eas init` and to deploy, though not t
 | `audit` | Checks every environment has a web export. Replace this script to run the app's own tests. |
 | `deploy:plan` | Plans a deploy (`{"deploy":true,"url":…}`) to the environment's web URL, derived from configuration alone (table below). |
 | `upload-artifacts` | Nothing; the pipeline's artifact already carries `dist/`. |
-| `deploy` | In order: for each native platform, runs `eas build` if no build of the environment's profile exists for the runtime version; with a domain, writes the domain's `.well-known` files into the export; runs `eas deploy` for the export and fails if EAS reports a URL other than the one `deploy:plan` printed; for production with a domain, registers it on the EAS project and reports its DNS records; last, runs `eas update` to the environment's channel for each native platform, bundling into `dist/eas-update` so the other environments' web exports survive. Previews skip the native steps. |
+| `deploy` | In order: for each native platform, runs `eas build` if no build of the environment's profile exists for the runtime version; with `"distribution": "internal"`, writes `install-links.json` into the export (below); with a domain, writes the domain's `.well-known` files into the export; runs `eas deploy` for the export and fails if EAS reports a URL other than the one `deploy:plan` printed; for production with a domain, registers it on the EAS project and reports its DNS records; last, runs `eas update` to the environment's channel for each native platform, bundling into `dist/eas-update` so the other environments' web exports survive. Previews skip the native steps. |
 
 Where each environment's web app is served:
 
@@ -201,6 +201,22 @@ fingerprint and team ID are requested, never a keystore or password). Native bui
 upload, because a project's first `eas build` generates its Android keystore. So the first release already
 carries the fingerprint. A file whose identity EAS doesn't hold yet is left out with a warning: iOS has no
 team ID until its credentials are set up, and an Android keystore appears with the first build.
+
+## Install links
+
+With `"distribution": "internal"`, every deploy of a branch environment writes `/install-links.json` into the web export it
+uploads, naming where each native app installs from:
+
+```json
+{ "android": { "buildId": "b9715ece-a28a-4326-bd3d-3b375c197a7c", "url": "https://expo.dev/accounts/jive-sh/projects/jive-sh/builds/b9715ece-a28a-4326-bd3d-3b375c197a7c" } }
+```
+
+The build is the one the deploy just found or started for the app's runtime version, so the file always names the
+newest build of the environment's profile. Its expo.dev page installs an internal build for anyone with the URL
+([internal distribution](https://docs.expo.dev/build/internal-distribution/)), showing the install button once the
+build finishes. The web app reads the file at runtime (`fetch("/install-links.json")`) to show a QR code or a link.
+EAS expires internal builds after 90 days, so a link older than that answers with an expired build until a version
+bump makes a new one. A store build writes no file, since it installs from the stores.
 
 ## Limitations and open questions
 

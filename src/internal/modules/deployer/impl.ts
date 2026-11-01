@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Option, pipe } from "effect";
 import { implementing, type EffectGen } from "effective-modules";
 import type { PipelineContext } from "jive-abstract-library";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { webExportDir } from "../../common/web-export";
 import { describeCustomDomain } from "../../hosting/custom-domain-report";
 import { environmentSettings, planWebDeployment, productionExpoAppUrl } from "../../hosting/web-target";
@@ -12,7 +12,9 @@ import {
   renderAssetLinks,
 } from "../../linking/well-known";
 import { nativeChannel } from "../../native/eas-json";
-import { ABSTRACT_KEY, PREVIEW_ENVIRONMENT, type AppExpoConfig } from "../../public/manifest";
+import { INSTALL_LINKS_PATH, buildPageUrl, renderInstallLinks, type InstallLink } from "../../native/install-links";
+import { ABSTRACT_KEY, PREVIEW_ENVIRONMENT, type AppExpoConfig, type NativePlatform } from "../../public/manifest";
+import type { NativeBuild } from "../eas/interface";
 import type { AppConfig } from "../expo/interface";
 import { appExpoModules } from "../index";
 import type { IDeployer } from "./interface";
@@ -41,17 +43,26 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
     // Builds start first: a project's first one generates its Android keystore, whose fingerprint the web
     // export's assetlinks.json must carry from the first release on.
     if (updatesNativeApps) {
-      const resolved = Option.flatMap(appConfig, (app) => app.runtimeVersion);
-      if (Option.isNone(resolved)) return yield* Effect.fail("expo.runtimeVersion is not set; build should have stopped on this");
-      const runtimeVersion = resolved.value;
+      if (Option.isNone(appConfig)) return yield* Effect.fail("the Expo config was not read; this is a bug");
+      const { runtimeVersion, owner, slug } = appConfig.value;
+      if (Option.isNone(runtimeVersion)) return yield* Effect.fail("expo.runtimeVersion is not set; build should have stopped on this");
+      if (Option.isNone(owner)) return yield* Effect.fail("expo.owner is not set; build should have stopped on this");
+      const installLinks: Partial<Record<NativePlatform, InstallLink>> = {};
       for (const platform of platforms) {
-        const existing = yield* Eas.findBuild({ platform, profile: nativeChannel(environment), runtimeVersion });
+        const profile = nativeChannel(environment);
+        const existing = yield* Eas.findBuild({ platform, profile, runtimeVersion: runtimeVersion.value });
+        let build: NativeBuild;
         if (Option.isSome(existing)) {
-          yield* Effect.log(`${platform}: build ${existing.value.id} (${existing.value.status}) already runs runtime ${runtimeVersion}`);
+          build = existing.value;
+          yield* Effect.log(`${platform}: build ${build.id} (${build.status}) already runs runtime ${runtimeVersion.value}`);
         } else {
-          const started = yield* Eas.startBuild({ platform, profile: nativeChannel(environment), message });
-          yield* Effect.log(`${platform}: no build runs runtime ${runtimeVersion}, so started build ${started.id}`);
+          build = yield* Eas.startBuild({ platform, profile, message });
+          yield* Effect.log(`${platform}: no build runs runtime ${runtimeVersion.value}, so started build ${build.id}`);
         }
+        installLinks[platform] = { buildId: build.id, url: buildPageUrl({ owner: owner.value, slug, buildId: build.id }) };
+      }
+      if (config.native.distribution === "internal") {
+        yield* this.writeExportFile({ exportDir: webExportDir(environment), path: INSTALL_LINKS_PATH, content: renderInstallLinks(installLinks) });
       }
     }
 
@@ -128,16 +139,18 @@ export class DeployerImpl extends implementing(appExpoModules.Deployer).uses(
       }
     }
 
-    const fs = this.getDependency(FileSystem.FileSystem);
-    for (const { path, content } of files) {
-      const target = join(exportDir, path);
-      yield* pipe(
-        fs.makeDirectory(join(exportDir, ".well-known"), { recursive: true }),
-        Effect.andThen(fs.writeFileString(target, content)),
-        Effect.mapError((e) => `Cannot write ${target}: ${e.message}`),
-      );
-      yield* Effect.log(`Wrote ${target}`);
-    }
+    for (const { path, content } of files) yield* this.writeExportFile({ exportDir, path, content });
+  }
+
+  /** Writes a file into the web export about to be uploaded, at `path` relative to the export's root. */
+  private *writeExportFile(input: { readonly exportDir: string; readonly path: string; readonly content: string }): EffectGen<void, string> {
+    const target = join(input.exportDir, input.path);
+    yield* pipe(
+      this.getDependency(FileSystem.FileSystem).makeDirectory(dirname(target), { recursive: true }),
+      Effect.andThen(this.getDependency(FileSystem.FileSystem).writeFileString(target, input.content)),
+      Effect.mapError((e) => `Cannot write ${target}: ${e.message}`),
+    );
+    yield* Effect.log(`Wrote ${target}`);
   }
 
   private *projectId(appConfig: AppConfig): EffectGen<string, string> {

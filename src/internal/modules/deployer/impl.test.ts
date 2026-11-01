@@ -21,7 +21,7 @@ function test(name: string, body: () => EffectGen<void, any, never>) {
 
 const FINGERPRINT = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase()).join(":");
 
-function packageJson(input: { readonly domain: string | null }, platforms: ReadonlyArray<NativePlatform> = ["android"]): PackageJson {
+function packageJson(input: { readonly domain: string | null; readonly distribution?: "internal" | "store" }, platforms: ReadonlyArray<NativePlatform> = ["android"]): PackageJson {
   return Schema.decodeUnknownSync(PackageJsonSchema)({
     $schema: "./package.schema.json",
     name: "my-app",
@@ -38,7 +38,7 @@ function packageJson(input: { readonly domain: string | null }, platforms: Reado
       "app-expo": {
         web: { subdomain: "my-app" },
         domain: input.domain,
-        native: { platforms, distribution: "internal" },
+        native: { platforms, distribution: input.distribution ?? "internal" },
         environments: {
           Staging: { web: { alias: "staging" }, easEnvironment: "preview", variables: { EXPO_PUBLIC_LABEL: "Staging" } },
           Production: { web: "production", easEnvironment: "production", variables: {} },
@@ -139,20 +139,25 @@ function deployWith(input: {
 }
 
 const methods = (calls: ReadonlyArray<Call>) => calls.map(({ method }) => method);
+const writtenPaths = (calls: ReadonlyArray<Call>) => calls.filter(({ method }) => method === "writeFile").map(({ input }) => (input as { path: string }).path);
 
 describe("deploy", () => {
   test("a branch environment starts the Android build it lacks, deploys its web export, then publishes an update to its channel", function* () {
     const calls = yield* deployWith({ environment: "Staging", context: commit, servedUrl: "https://my-app--staging.expo.app" });
-    expect(methods(calls)).toEqual(["findBuild", "startBuild", "deployWeb", "publishUpdate"]);
+    expect(methods(calls)).toEqual(["findBuild", "startBuild", "writeFile", "deployWeb", "publishUpdate"]);
     expect(calls[0]!.input).toEqual({ platform: "android", profile: "staging", runtimeVersion: "1.0.0" });
     expect(calls[2]!.input).toEqual({
+      path: "dist/web/Staging/install-links.json",
+      content: { android: { buildId: "new-build", url: "https://expo.dev/accounts/jive-sh/projects/my-app/builds/new-build" } },
+    });
+    expect(calls[3]!.input).toEqual({
       exportDir: "dist/web/Staging",
       subdomain: "my-app",
       id: "alias-staging-1a2b3c4d",
       promotion: Promotion.Alias({ alias: "staging" }),
       easEnvironment: "preview",
     });
-    expect(calls[3]!.input).toEqual({
+    expect(calls[4]!.input).toEqual({
       platform: "android",
       channel: "staging",
       easEnvironment: "preview",
@@ -168,7 +173,16 @@ describe("deploy", () => {
       servedUrl: "https://my-app.expo.app",
       existingBuild: Option.some({ id: "old-build", status: "FINISHED" }),
     });
-    expect(methods(calls)).toEqual(["findBuild", "deployWeb", "publishUpdate"]);
+    expect(methods(calls)).toEqual(["findBuild", "writeFile", "deployWeb", "publishUpdate"]);
+    expect(calls[1]!.input).toEqual({
+      path: "dist/web/Production/install-links.json",
+      content: { android: { buildId: "old-build", url: "https://expo.dev/accounts/jive-sh/projects/my-app/builds/old-build" } },
+    });
+  });
+
+  test("a store build installs from the stores, so no install links are written", function* () {
+    const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app", packageJson: packageJson({ domain: null, distribution: "store" }) });
+    expect(methods(calls)).toEqual(["findBuild", "startBuild", "deployWeb", "publishUpdate"]);
   });
 
   test("a pull request deploys the web app only", function* () {
@@ -193,21 +207,21 @@ describe("deploy with a custom domain", () => {
 
   test("production writes assetlinks.json from the keystore the build created, deploys, registers the domain, then updates", function* () {
     const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app", packageJson: withDomain() });
-    expect(methods(calls)).toEqual(["findBuild", "startBuild", "androidFingerprints", "writeFile", "deployWeb", "ensureCustomDomain", "publishUpdate"]);
-    expect(calls[2]!.input).toEqual({ projectId: "00000000-0000-0000-0000-000000000000", packageName: "sh.jive.myapp" });
-    expect(calls[3]!.input).toEqual({
+    expect(methods(calls)).toEqual(["findBuild", "startBuild", "writeFile", "androidFingerprints", "writeFile", "deployWeb", "ensureCustomDomain", "publishUpdate"]);
+    expect(calls[3]!.input).toEqual({ projectId: "00000000-0000-0000-0000-000000000000", packageName: "sh.jive.myapp" });
+    expect(calls[4]!.input).toEqual({
       path: "dist/web/Production/.well-known/assetlinks.json",
       content: [{
         relation: ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
         target: { namespace: "android_app", package_name: "sh.jive.myapp", sha256_cert_fingerprints: [FINGERPRINT] },
       }],
     });
-    expect(calls[5]!.input).toEqual({ projectId: "00000000-0000-0000-0000-000000000000", hostname: "app.example.com" });
+    expect(calls[6]!.input).toEqual({ projectId: "00000000-0000-0000-0000-000000000000", hostname: "app.example.com" });
   });
 
   test("an iOS app gets apple-app-site-association naming its team and bundle identifier", function* () {
     const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app", packageJson: withDomain(["ios"]) });
-    const written = calls.find(({ method }) => method === "writeFile")!.input;
+    const written = calls.find(({ method, input }) => method === "writeFile" && (input as { path: string }).path.endsWith("apple-app-site-association"))?.input;
     expect(written).toEqual({
       path: "dist/web/Production/.well-known/apple-app-site-association",
       content: { applinks: { apps: [], details: [{ appID: "ABCDE12345.sh.jive.myapp", paths: ["*"] }] } },
@@ -216,7 +230,7 @@ describe("deploy with a custom domain", () => {
 
   test("an aliased environment and a preview get the association files but leave the domain alone", function* () {
     const staging = yield* deployWith({ environment: "Staging", context: commit, servedUrl: "https://my-app--staging.expo.app", packageJson: withDomain() });
-    expect(methods(staging)).toEqual(["findBuild", "startBuild", "androidFingerprints", "writeFile", "deployWeb", "publishUpdate"]);
+    expect(methods(staging)).toEqual(["findBuild", "startBuild", "writeFile", "androidFingerprints", "writeFile", "deployWeb", "publishUpdate"]);
     const preview = yield* deployWith({ environment: "Preview", context: pullRequest, servedUrl: "https://my-app--pr-42-1a2b3c4d.expo.app", packageJson: withDomain() });
     expect(methods(preview)).toEqual(["androidFingerprints", "writeFile", "deployWeb"]);
   });
@@ -230,7 +244,7 @@ describe("deploy with a custom domain", () => {
       fingerprints: [],
       appleTeamId: Option.none(),
     });
-    expect(methods(calls)).not.toContain("writeFile");
+    expect(writtenPaths(calls)).toEqual(["dist/web/Production/install-links.json"]);
     expect(methods(calls)).toContain("ensureCustomDomain");
   });
 
@@ -239,8 +253,9 @@ describe("deploy with a custom domain", () => {
     expect(methods(calls)).toEqual(["deployWeb", "ensureCustomDomain"]);
   });
 
-  test("with domain null, nothing reads credentials, writes files or touches the domain", function* () {
+  test("with domain null, nothing reads credentials, writes association files or touches the domain", function* () {
     const calls = yield* deployWith({ environment: "Production", context: commit, servedUrl: "https://my-app.expo.app" });
-    expect(methods(calls).filter((method) => ["androidFingerprints", "appleTeamId", "writeFile", "ensureCustomDomain"].includes(method))).toEqual([]);
+    expect(methods(calls).filter((method) => ["androidFingerprints", "appleTeamId", "ensureCustomDomain"].includes(method))).toEqual([]);
+    expect(writtenPaths(calls)).toEqual(["dist/web/Production/install-links.json"]);
   });
 });

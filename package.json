@@ -2,7 +2,7 @@
   "$schema": "./package.schema.json",
   "license": "MIT",
   "name": "jive-abstract-app-expo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Jive abstract for Expo apps: builds and deploys the web app to EAS Hosting, with its custom domain and universal links, and the Android and iOS apps through EAS Build and EAS Update, for every environment in jive.cicd.deploy.branches",
   "type": "module",
   "peerDependencies": {

@@ -20,10 +20,15 @@ export function renderAppleAppSiteAssociation(input: { readonly appleTeamId: str
   }, null, 2)}\n`;
 }
 
-/** https://docs.expo.dev/linking/android-app-links/ */
+/**
+ * `handle_all_urls` opens the app from the domain's links (https://docs.expo.dev/linking/android-app-links/), and
+ * `get_login_creds` lets the app use the domain's passkeys and saved passwords through Credential Manager
+ * (https://developer.android.com/identity/credential-manager/prerequisites), since the app and the website are one
+ * Expo app signing in to one account.
+ */
 export function renderAssetLinks(input: { readonly packageName: string; readonly sha256Fingerprints: ReadonlyArray<string> }): string {
   return `${JSON.stringify([{
-    relation: ["delegate_permission/common.handle_all_urls"],
+    relation: ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
     target: {
       namespace: "android_app",
       package_name: input.packageName,

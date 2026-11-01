@@ -189,8 +189,10 @@ export it uploads, so the domain serves them:
 
 - `/.well-known/apple-app-site-association`, whose `applinks.details[0].appID` is `<team ID>.<bundle ID>`
   for all paths (`"*"`).
-- `/.well-known/assetlinks.json`, the `delegate_permission/common.handle_all_urls` statement for
-  `expo.android.package`, listing the SHA-256 fingerprint of every keystore EAS holds for it.
+- `/.well-known/assetlinks.json`, one statement for `expo.android.package` with two relations,
+  `delegate_permission/common.handle_all_urls` (App Links) and `delegate_permission/common.get_login_creds` (the app
+  uses the domain's passkeys and passwords through Credential Manager), listing the SHA-256 fingerprint of every
+  keystore EAS holds for it.
 
 The team ID and fingerprints come from EAS's credentials service, read through Expo's GraphQL API with the
 same token (the `iosAppCredentials` and `androidAppCredentials` queries `eas credentials` runs; only the
